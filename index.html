@@ -9,16 +9,11 @@
     html, body { width: 100%; height: 100%; overflow: hidden; background: #1e293b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-    #hud { position: fixed; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 30; }
+    #hud { position: fixed; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 10; }
     .col { display: flex; flex-direction: column; gap: 6px; }
     .col.center { align-items: center; }
     .col.right { align-items: flex-end; }
-    .pill { background: rgba(15, 23, 42, 0.82); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #f8fafc; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 4px 14px rgba(0,0,0,0.3); white-space: nowrap; }
-
-    #view-btn { pointer-events: auto; cursor: pointer; background: linear-gradient(135deg, rgba(14,165,233,0.92), rgba(59,130,246,0.92)); color: #fff; border: 1.5px solid rgba(186,230,253,0.75); font-size: 12px; letter-spacing: 0.4px; touch-action: manipulation; transition: transform 0.1s; }
-    #view-btn.topdown { background: rgba(30, 41, 59, 0.92); border-color: rgba(148, 163, 184, 0.55); color: #cbd5e1; }
-    #view-btn:active { transform: scale(0.92); }
-
+    .pill { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #f8fafc; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 4px 14px rgba(0,0,0,0.3); white-space: nowrap; }
     #timer-pill { font-size: 17px; color: #38bdf8; border-color: rgba(56,189,248,0.45); }
     #timer-pill.urgent { color: #f87171; border-color: rgba(248,113,113,0.7); animation: pulse 0.5s infinite alternate; }
     @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
@@ -26,6 +21,9 @@
     #combo-pill.active { opacity: 1; transform: scale(1); }
     #powerup-pill { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; font-size: 11px; display: none; }
     #powerup-pill.active { display: block; }
+
+    #view-btn { pointer-events: auto; cursor: pointer; touch-action: manipulation; background: rgba(56, 189, 248, 0.22); border: 1.5px solid rgba(56, 189, 248, 0.75); color: #e0f2fe; font-size: 11px; padding: 6px 12px; transition: transform 0.1s, background 0.15s; }
+    #view-btn:active { transform: scale(0.92); background: rgba(56, 189, 248, 0.45); }
 
     #controls { position: fixed; bottom: 24px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; z-index: 20; }
     #alt-btn { width: 68px; height: 68px; border-radius: 50%; background: rgba(15, 23, 42, 0.9); border: 3px solid #a855f7; box-shadow: 0 6px 18px rgba(0,0,0,0.4); color: #fff; font-weight: 800; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; transition: transform 0.1s; }
@@ -54,16 +52,16 @@
 <body>
   <div id="hud">
     <div class="col">
-      <button id="view-btn" class="pill" type="button" onclick="window.flybyToggleView && window.flybyToggleView()">VIEW: 2.5D</button>
       <div class="pill">SCORE: <span id="score">0</span></div>
       <div class="pill" id="combo-pill">COMBO x<span id="combo">1</span></div>
     </div>
     <div class="col center">
-      <div class="pill" id="timer-pill">60.0s</div>
+      <div class="pill" id="timer-pill">45.0s</div>
       <div class="pill" id="powerup-pill">BOOST</div>
     </div>
     <div class="col right">
       <div class="pill">BEST: <span id="best">0</span></div>
+      <button id="view-btn" class="pill" type="button" onclick="window.flybyToggleView && window.flybyToggleView()">VIEW: 2.5D</button>
     </div>
   </div>
 
@@ -81,11 +79,12 @@
   <div id="start-screen" class="overlay">
     <div class="badge">CITY PIGEON ARCADE • v5.0</div>
     <h1>FLYBY</h1>
-    <p style="font-size:14px;color:#cbd5e1">Rule the city skies for <b>60 seconds</b>!</p>
+    <p style="font-size:14px;color:#cbd5e1">Rule the city skies for <b>45 seconds</b>!</p>
     <div class="tips">
-      • <b>2.5D / 2D Toggle:</b> Tap <b>VIEW</b> at the top-left anytime to switch between Isometric 2.5D and Top-Down.<br>
+      • <b>Aim Reticle:</b> Line up the pulsing ground target.<br>
       • <b>HIGH vs LOW:</b> Fly <b>HIGH</b> for <b>2x points</b>; swoop <b>LOW</b> to duck under choppers, drones &amp; hawks.<br>
-      • <b>Perch Power-Ups:</b> Swoop <b>LOW</b> onto glowing <b>Berry Trees</b> or <b>Nest Poles</b> for Rapid-Fire, Triple-Spread, or Mega-Splat!
+      • <b>Perch Power-Ups:</b> Swoop <b>LOW</b> onto glowing <b>Berry Trees</b> or <b>Nest Poles</b> for Rapid-Fire, Triple-Spread, or Mega-Splat!<br>
+      • <b>Camera Toggle:</b> Tap <b>VIEW: 2.5D / 2D</b> anytime to switch perspective.
     </div>
     <button class="btn" type="button" onclick="window.flybyStart && window.flybyStart()">START FLYBY</button>
   </div>
@@ -93,3 +92,15 @@
   <div id="over-screen" class="overlay" style="display:none">
     <h1>TIME'S UP!</h1>
     <p id="rec-msg" style="color:#fde047;font-weight:800;display:none">NEW HIGH SCORE!</p>
+    <div class="stats">
+      <div class="card"><span>SCORE</span><strong id="f-score">0</strong></div>
+      <div class="card"><span>BEST</span><strong id="f-best">0</strong></div>
+    </div>
+    <button class="btn" type="button" onclick="window.flybyStart && window.flybyStart()">FLY AGAIN</button>
+  </div>
+
+  <canvas id="game"></canvas>
+  <script src="render.js?v=5.0"></script>
+  <script src="game.js?v=5.0"></script>
+</body>
+</html>
