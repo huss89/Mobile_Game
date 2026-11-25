@@ -378,4 +378,165 @@
     if (mode === 'DEMO') {
       bird.ang += 0.42 * dt; bird.bank = 0.3; bird.spd = 155; bird.tail = 0.35;
     } else {
-      let ix = joy.dx + (keys['ArrowRight'] || keys['KeyD'] ? 1
+      let ix = joy.dx + (keys['ArrowRight'] || keys['KeyD'] ? 1 : 0) - (keys['ArrowLeft'] || keys['KeyA'] ? 1 : 0);
+      let iy = joy.dy + (keys['ArrowDown'] || keys['KeyS'] ? 1 : 0) - (keys['ArrowUp'] || keys['KeyW'] ? 1 : 0);
+      const mag = Math.hypot(ix, iy);
+
+      if (bird.stun > 0) {
+        bird.ang += 9 * dt; bird.spd = 60; bird.tail = 0.85;
+      } else if (mag > 0.12) {
+        let diff = Math.atan2(iy, ix) - bird.ang;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        bird.ang += Math.sign(diff) * Math.min(Math.abs(diff), 5.0 * dt);
+        bird.bank += (Math.max(-1, Math.min(1, diff * 2)) - bird.bank) * 8 * dt;
+        bird.spd = (bird.alt === 'LOW' ? 155 : 175) + Math.min(mag, 1) * 70;
+        const tTail = Math.min(0.85, 0.2 + Math.abs(bird.bank) * 0.45 + (bird.alt === 'LOW' ? 0.25 : 0));
+        bird.tail += (tTail - bird.tail) * 7 * dt;
+      } else {
+        bird.bank *= Math.pow(0.05, dt);
+        bird.spd += ((bird.alt === 'LOW' ? 140 : 165) - bird.spd) * 4 * dt;
+        bird.tail += ((bird.alt === 'LOW' ? 0.42 : 0.18) - bird.tail) * 6 * dt;
+      }
+    }
+
+    bird.vx = Math.cos(bird.ang) * bird.spd;
+    bird.vy = Math.sin(bird.ang) * bird.spd;
+
+    if (mode === 'PLAY') {
+      for (const w of winds) {
+        w.ph += dt * 3;
+        if (Math.hypot(bird.x - w.x, bird.y - w.y) < w.r) {
+          bird.x += w.fx * dt;
+          bird.y += w.fy * dt;
+        }
+      }
+    }
+
+    bird.x += bird.vx * dt;
+    bird.y += bird.vy * dt;
+    bird.wing += dt * (11.5 + bird.spd * 0.035);
+
+    if (mode === 'PLAY') {
+      for (const p of perches) {
+        p.pulse += dt * 4;
+        if (!p.act) {
+          p.rt -= dt;
+          if (p.rt <= 0) p.act = true;
+          continue;
+        }
+        if (Math.hypot(bird.x - p.x, bird.y - p.y) < 30 && bird.alt === 'LOW' && bird.stun <= 0) {
+          bird.x += (p.x - bird.x) * 8 * dt;
+          bird.y += (p.y - bird.y) * 8 * dt;
+          bird.perchT += dt;
+          bird.perchTarget = p;
+          bird.tail = 0.9;
+          if (bird.perchT >= 0.22) {
+            p.act = false; p.rt = 14;
+            bird.perchT = 0; bird.perchTarget = null;
+            bird.pwr = p.rew; bird.pwrT = 8.0;
+            sfx('pwr');
+            emitParticles(p.x, p.y, 14, '#fde047', 'dot', 110);
+            const lbls = { RAPID: 'BERRY FEAST: RAPID FIRE!', TRIPLE: 'NEST SEEDS: TRIPLE DROP!', MEGA: 'GOLDEN ACORN: MEGA SPLAT!' };
+            pops.push({ x: p.x, y: p.y - 24, txt: lbls[p.rew], col: '#fde047', life: 1.3 });
+          }
+        } else if (bird.perchTarget === p) {
+          bird.perchT = 0; bird.perchTarget = null;
+        }
+      }
+    }
+
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.el += dt; d.x += d.vx * dt; d.y += d.vy * dt;
+      for (const w of winds) {
+        if (Math.hypot(d.x - w.x, d.y - w.y) < w.r) {
+          d.x += w.fx * 0.85 * dt; d.y += w.fy * 0.85 * dt;
+        }
+      }
+      if (d.el >= d.dur) { impact(d); drops.splice(i, 1); }
+    }
+
+    for (let i = haz.length - 1; i >= 0; i--) {
+      const h = haz[i];
+      h.x += h.vx * dt; h.y += h.vy * dt; h.ph += dt * 28;
+      if (mode === 'PLAY' && bird.alt === 'HIGH' && bird.stun <= 0) {
+        if (Math.hypot(bird.x - h.x, bird.y - h.y) < h.r + 12) {
+          bird.stun = 1.1; combo = 1; comboT = 0; shake = Math.max(shake, 0.55);
+          sfx('bonk');
+          emitParticles(bird.x, bird.y, 12, '#cbd5e1', 'feather', 115);
+          pops.push({ x: bird.x, y: bird.y - 20, txt: `${h.tp} HIT! SWOOP LOW!`, col: '#f87171', life: 1.3 });
+        }
+      }
+      if (Math.hypot(h.x - bird.x, h.y - bird.y) > 1650) haz.splice(i, 1);
+    }
+
+    for (let i = cars.length - 1; i >= 0; i--) {
+      cars[i].x += cars[i].vx * dt; cars[i].y += cars[i].vy * dt;
+      if (Math.hypot(cars[i].x - bird.x, cars[i].y - bird.y) > 1650) cars.splice(i, 1);
+    }
+
+    for (let i = peds.length - 1; i >= 0; i--) {
+      peds[i].x += peds[i].vx * dt; peds[i].y += peds[i].vy * dt; peds[i].ph += dt * 10;
+      if (Math.hypot(peds[i].x - bird.x, peds[i].y - bird.y) > 1550) peds.splice(i, 1);
+    }
+
+    for (let i = gpigs.length - 1; i >= 0; i--) {
+      const g = gpigs[i];
+      g.ph += dt * 9;
+      if (!g.sc && bird.alt === 'LOW' && Math.hypot(g.x - bird.x, g.y - bird.y) < 75) {
+        g.sc = true;
+        const a = Math.atan2(g.y - bird.y, g.x - bird.x) + (Math.random() - 0.5) * 0.5;
+        g.ang = a; g.vx = Math.cos(a) * 140; g.vy = Math.sin(a) * 140;
+      }
+      if (g.sc) { g.x += g.vx * dt; g.y += g.vy * dt; }
+      if (Math.hypot(g.x - bird.x, g.y - bird.y) > 1500) gpigs.splice(i, 1);
+    }
+
+    for (let i = clouds.length - 1; i >= 0; i--) {
+      clouds[i].x += clouds[i].vx * dt;
+      if (Math.hypot(clouds[i].x - bird.x, clouds[i].y - bird.y) > 1650) clouds.splice(i, 1);
+    }
+
+    for (let i = winds.length - 1; i >= 0; i--) {
+      if (Math.hypot(winds[i].x - bird.x, winds[i].y - bird.y) > 1700) winds.splice(i, 1);
+    }
+
+    for (let i = perches.length - 1; i >= 0; i--) {
+      if (Math.hypot(perches[i].x - bird.x, perches[i].y - bird.y) > 1700) perches.splice(i, 1);
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const pt = particles[i];
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.ang += pt.spin * dt; pt.life -= dt;
+      if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    for (const s of splats) {
+      if (s.car) { s.x = s.car.x + s.ox; s.y = s.car.y + s.oy; }
+    }
+
+    for (let i = pops.length - 1; i >= 0; i--) {
+      pops[i].y -= 36 * dt; pops[i].life -= dt;
+      if (pops[i].life <= 0) pops.splice(i, 1);
+    }
+
+    spawn();
+  }
+
+  // --- LOOP ---
+  resetWorld();
+  function loop(now) {
+    const dt = Math.min((now - lastT) / 1000, 0.05);
+    lastT = now;
+    if (mode !== 'OVER') update(dt);
+    if (window.FlybyRender) {
+      window.FlybyRender.render(ctx, {
+        W, H, zoom, mode, time, bird, cars, peds, gpigs, drops, splats, pops,
+        particles, haz, winds, perches, clouds, joy, shake, CELL, ROAD, hash, flightParams
+      });
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
