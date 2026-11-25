@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sky Bomber - Top-Down Arcade</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #1a2634;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    /* HUD Overlay */
+    #hud {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .pill {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #f8fafc;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    #combo-pill {
+      color: #fde047;
+      opacity: 0;
+      transform: scale(0.9);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    #combo-pill.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+    /* Right-thumb Drop Button */
+    #drop-btn {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 86px;
+      height: 86px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0);
+      border: 4px solid #38bdf8;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35), inset 0 -4px 8px rgba(0,0,0,0.15);
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      transition: transform 0.08s ease, background 0.1s;
+    }
+    #drop-btn:active, #drop-btn.pressed {
+      transform: scale(0.9);
+      background: #bae6fd;
+    }
+    #drop-btn .cooldown-ring {
+      font-size: 11px;
+      font-weight: 600;
+      color: #0284c7;
+      margin-top: 2px;
+    }
+    /* Start Overlay */
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      color: #fff;
+      z-index: 50;
+    }
+    #start-screen h1 {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+      color: #38bdf8;
+    }
+    #start-screen p {
+      font-size: 15px;
+      color: #cbd5e1;
+      max-width: 320px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    #start-btn {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 14px 32px;
+      font-size: 17px;
+      font-weight: 800;
+      border-radius: 999px;
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="hud">
+    <div class="pill">SCORE: <span id="score-val">0</span></div>
+    <div class="pill" id="combo-pill">COMBO x<span id="combo-val">1</span></div>
+  </div>
+
+  <button id="drop-btn" aria-label="Drop">
+    <span>DROP</span>
+    <span class="cooldown-ring" id="ammo-status">READY</span>
+  </button>
+
+  <div id="start-screen">
+    <h1>SKY BOMBER</h1>
+    <p>Drag anywhere on the left to steer your bird.<br>Tap <b>DROP</b> on the right—lead your moving targets to account for fall time!</p>
+    <button id="start-btn">TAP TO FLY</button>
+  </div>
+
+  <canvas id="game"></canvas>
+
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score-val');
+  const comboPill = document.getElementById('combo-pill');
+  const comboEl = document.getElementById('combo-val');
+  const dropBtn = document.getElementById('drop-btn');
+  const ammoStatus = document.getElementById('ammo-status');
+  const startScreen = document.getElementById('start-screen');
+  const startBtn = document.getElementById('start-btn');
+
+  // --- AUDIO SYNTHESIZER (Zero external assets) ---
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playSound(type) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    if (type === 'drop') {
+      // Descending whistle
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(520, now);
+      osc.frequency.exponentialRampToValueAtTime(190, now + 0.75);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.78);
+      osc.start(now);
+      osc.stop(now + 0.8);
+    } else if (type === 'splat') {
+      // Soft thud/splat
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } else if (type === 'hit') {
+      // Arcade chime
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.setValueAtTime(880, now + 0.07); // A5
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+  }
+
+  // --- VIEWPORT & WORLD SETUP ---
+  let width = 0, height = 0, dpr = 1;
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // City Grid Constants (Modular layout ready for future 2.5D/Isometric projection)
+  const BLOCK_SIZE = 440;
+  const ROAD_WIDTH = 110;
+  const CELL_SIZE = BLOCK_SIZE + ROAD_WIDTH; // 550px per city block repeat
+
+  // Game State
+  let running = false;
+  let score = 0;
+  let combo = 1;
+  let comboTimer = 0;
+  let lastTime = 0;
+
+  // Bird State (World coordinates)
+  const bird = {
+    x: 275,
+    y: 275,
+    vx: 0,
+    vy: -120,
+    angle: -Math.PI / 2,
+    speed: 175,
+    wingPhase: 0,
+    bank: 0,
+    cooldown: 0,
+    maxCooldown: 0.55
+  };
+
+  // Entities
+  const drops = [];       // Active falling drops
+  const splats = [];      // Ground splat decals
+  const popups = [];      // Floating score text
+  const cars = [];        // Moving vehicles
+  const pedestrians = []; // Moving people
+
+  // Deterministic pseudo-random helper for consistent city blocks
+  function hash2D(ix, iy) {
+    const n = Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453123;
+    return n - Math.floor(n);
+  }
+
+  // --- SPAWN MOVING TRAFFIC & PEDESTRIANS AROUND BIRD ---
+  function spawnEntities() {
+    // Keep ~14 cars active near the bird
+    while (cars.length < 14) {
+      const gx = Math.floor(bird.x / CELL_SIZE) + Math.floor(Math.random() * 5) - 2;
+      const gy = Math.floor(bird.y / CELL_SIZE) + Math.floor(Math.random() * 5) - 2;
+      const horizontal = Math.random() > 0.5;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      const laneOffset = dir * 24;
+
+      const isConvertible = Math.random() < 0.25;
+      const palette = ['#ef4444', '#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#f8fafc', '#ec4899'];
+      const color = palette[Math.floor(Math.random() * palette.length)];
+
+      cars.push({
+        x: horizontal ? gx * CELL_SIZE + Math.random() * CELL_SIZE : gx * CELL_SIZE + laneOffset,
+        y: horizontal ? gy * CELL_SIZE + laneOffset : gy * CELL_SIZE + Math.random() * CELL_SIZE,
+        vx: horizontal ? dir * (110 + Math.random() * 65) : 0,
+        vy: horizontal ? 0 : dir * (110 + Math.random() * 65),
+        angle: horizontal ? (dir > 0 ? 0 : Math.PI) : (dir > 0 ? Math.PI / 2 : -Math.PI / 2),
+        w: 44,
+        h: 24,
+        color,
+        isConvertible,
+        hitCooldown: 0
+      });
+    }
+
+    // Keep ~22 pedestrians active on sidewalks
+    while (pedestrians.length < 22) {
+      const gx = Math.floor(bird.x / CELL_SIZE) + Math.floor(Math.random() * 5) - 2;
+      const gy = Math.floor(bird.y / CELL_SIZE) + Math.floor(Math.random() * 5) - 2;
+      const horizontal = Math.random() > 0.5;
+      const dir = Math.random() > 0.5 ? 1 : -1;
+      const sidewalkOffset = (Math.random() > 0.5 ? 1 : -1) * (ROAD_WIDTH / 2 + 14);
+      const shirtColors = ['#f43f5e', '#38bdf8', '#facc15', '#a855f7', '#fb923c', '#4ade80'];
+
+      pedestrians.push({
+        x: horizontal ? gx * CELL_SIZE + Math.random() * CELL_SIZE : gx * CELL_SIZE + sidewalkOffset,
+        y: horizontal ? gy * CELL_SIZE + sidewalkOffset : gy * CELL_SIZE + Math.random() * CELL_SIZE,
+        vx: horizontal ? dir * (28 + Math.random() * 18) : 0,
+        vy: horizontal ? 0 : dir * (28 + Math.random() * 18),
+        walkPhase: Math.random() * Math.PI * 2,
+        color: shirtColors[Math.floor(Math.random() * shirtColors.length)],
+        hasUmbrella: Math.random() < 0.2,
+        hitCooldown: 0
+      });
+    }
+  }
+
+  // --- INPUT HANDLING (Virtual Joystick + Drop Button + Keyboard) ---
+  const joystick = {
+    active: false,
+    touchId: null,
+    originX: 0,
+    originY: 0,
+    currX: 0,
+    currY: 0,
+    dx: 0,
+    dy: 0
+  };
+
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'Space') triggerDrop();
+  });
+  window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    initAudio();
+    for (const t of e.changedTouches) {
+      if (!joystick.active && t.clientX < width * 0.72) {
+        joystick.active = true;
+        joystick.touchId = t.identifier;
+        joystick.originX = t.clientX;
+        joystick.originY = t.clientY;
+        joystick.currX = t.clientX;
+        joystick.currY = t.clientY;
+        joystick.dx = 0;
+        joystick.dy = 0;
+      }
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (joystick.active && t.identifier === joystick.touchId) {
+        joystick.currX = t.clientX;
+        joystick.currY = t.clientY;
+        const maxR = 52;
+        let rx = joystick.currX - joystick.originX;
+        let ry = joystick.currY - joystick.originY;
+        const dist = Math.hypot(rx, ry);
+        if (dist > maxR) {
+          rx = (rx / dist) * maxR;
+          ry = (ry / dist) * maxR;
+        }
+        joystick.dx = rx / maxR;
+        joystick.dy = ry / maxR;
+      }
+    }
+  }, { passive: false });
+
+  function endTouch(e) {
+    for (const t of e.changedTouches) {
+      if (joystick.active && t.identifier === joystick.touchId) {
+        joystick.active = false;
+        joystick.touchId = null;
+        joystick.dx = 0;
+        joystick.dy = 0;
+      }
+    }
+  }
+  canvas.addEventListener('touchend', endTouch);
+  canvas.addEventListener('touchcancel', endTouch);
+
+  // Drop Button Events
+  function triggerDrop() {
+    if (!running || bird.cooldown > 0) return;
+    initAudio();
+    bird.cooldown = bird.maxCooldown;
+    playSound('drop');
+
+    // Inherit 45% of bird's velocity so leading targets feels natural
+    const fallDuration = 0.85; // seconds from bird altitude to ground
+    drops.push({
+      x: bird.x,
+      y: bird.y,
+      vx: bird.vx * 0.45,
+      vy: bird.vy * 0.45,
+      elapsed: 0,
+      duration: fallDuration,
+      startScale: 1.35,
+      endScale: 0.35
+    });
+  }
+
+  dropBtn.addEventListener('touchstart', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    dropBtn.classList.add('pressed');
+    triggerDrop();
+  }, { passive: false });
+  dropBtn.addEventListener('touchend', () => dropBtn.classList.remove('pressed'));
+  dropBtn.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    triggerDrop();
+  });
+
+  startBtn.addEventListener('click', () => {
+    initAudio();
+    startScreen.style.display = 'none';
+    running = true;
+    spawnEntities();
+    lastTime = performance.now();
+    requestAnimationFrame(loop);
+  });
+
+  // --- HELPER: ROTATED RECTANGLE COLLISION ---
+  function pointInRotatedRect(px, py, rx, ry, rw, rh, angle) {
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+    const dx = px - rx;
+    const dy = py - ry;
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    return Math.abs(localX) <= rw * 0.55 && Math.abs(localY) <= rh * 0.55;
+  }
+
+  // --- EVALUATE GROUND IMPACT ---
+  function resolveDropImpact(drop) {
+    playSound('splat');
+    let hitSomething = false;
+    let points = 0;
+    let label = '';
+    let color = '#ffffff';
+
+    // 1. Check Cars (Highest value moving targets)
+    for (const c of cars) {
+      if (pointInRotatedRect(drop.x, drop.y, c.x, c.y, c.w, c.h, c.angle)) {
+        hitSomething = true;
+        points = c.isConvertible ? 200 : 100;
+        label = c.isConvertible ? 'CONVERTIBLE!' : 'DIRECT HIT!';
+        color = '#fde047';
+        // Attach splat onto car
+        splats.push({
+          x: drop.x, y: drop.y,
+          followCar: c,
+          offsetX: drop.x - c.x,
+          offsetY: drop.y - c.y,
+          radius: 9,
+          alpha: 0.95
+        });
+        break;
+      }
+    }
+
+    // 2. Check Pedestrians
+    if (!hitSomething) {
+      for (const p of pedestrians) {
+        if (Math.hypot(drop.x - p.x, drop.y - p.y) < 16) {
+          hitSomething = true;
+          points = p.hasUmbrella ? 25 : 60;
+          label = p.hasUmbrella ? 'UMBRELLA BLOCK!' : 'BULLSEYE!';
+          color = p.hasUmbrella ? '#94a3b8' : '#38bdf8';
+          // Speed up startled pedestrian!
+          p.vx *= 1.8;
+          p.vy *= 1.8;
+          splats.push({ x: drop.x, y: drop.y, radius: 7, alpha: 0.85 });
+          break;
+        }
+      }
+    }
+
+    // 3. Check City Block Structures (Roofs vs Trees vs Street)
+    if (!hitSomething) {
+      const gx = Math.floor(drop.x / CELL_SIZE);
+      const gy = Math.floor(drop.y / CELL_SIZE);
+      const localX = ((drop.x % CELL_SIZE) + CELL_SIZE) % CELL_SIZE;
+      const localY = ((drop.y % CELL_SIZE) + CELL_SIZE) % CELL_SIZE;
+
+      // Inside block area (outside road)
+      if (localX > ROAD_WIDTH / 2 && localX < CELL_SIZE - ROAD_WIDTH / 2 &&
+          localY > ROAD_WIDTH / 2 && localY < CELL_SIZE - ROAD_WIDTH / 2) {
+        const blockType = hash2D(gx, gy);
+        if (blockType < 0.72) {
+          // Building Roof
+          hitSomething = true;
+          points = 15;
+          label = 'ROOFTOP +15';
+          color = '#cbd5e1';
+        } else {
+          // Park / Trees
+          points = 5;
+          label = 'LEAFY +5';
+          color = '#86efac';
+        }
+      }
+      splats.push({ x: drop.x, y: drop.y, radius: 8, alpha: 0.85 });
+    }
+
+    if (hitSomething) {
+      playSound('hit');
+      const earned = points * combo;
+      score += earned;
+      combo = Math.min(combo + 1, 10);
+      comboTimer = 4.2;
+      popups.push({
+        x: drop.x,
+        y: drop.y - 10,
+        text: `${label} +${earned}`,
+        color,
+        life: 1.1
+      });
+    } else {
+      combo = 1;
+      comboTimer = 0;
+      if (points > 0) {
+        score += points;
+        popups.push({ x: drop.x, y: drop.y - 10, text: label, color, life: 0.9 });
+      }
+    }
+
+    // Cap splat decals for performance
+    if (splats.length > 75) splats.shift();
+  }
+
+  // --- UPDATE SIMULATION ---
+  function update(dt) {
+    // Cooldown UI
+    if (bird.cooldown > 0) {
+      bird.cooldown = Math.max(0, bird.cooldown - dt);
+      ammoStatus.textContent = bird.cooldown > 0 ? `${bird.cooldown.toFixed(1)}s` : 'READY';
+    }
+
+    // Combo decay
+    if (comboTimer > 0) {
+      comboTimer -= dt;
+      if (comboTimer <= 0) combo = 1;
+    }
+    scoreEl.textContent = score;
+    comboEl.textContent = combo;
+    comboPill.classList.toggle('active', combo > 1);
+
+    // Steering Input
+    let ix = joystick.dx;
+    let iy = joystick.dy;
+    if (keys['ArrowLeft'] || keys['KeyA']) ix -= 1;
+    if (keys['ArrowRight'] || keys['KeyD']) ix += 1;
+    if (keys['ArrowUp'] || keys['KeyW']) iy -= 1;
+    if (keys['ArrowDown'] || keys['KeyS']) iy += 1;
+
+    const mag = Math.hypot(ix, iy);
+    if (mag > 0.12) {
+      const targetAngle = Math.atan2(iy, ix);
+      // Shortest angular difference
+      let diff = targetAngle - bird.angle;
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+
+      const turnRate = 4.8; // Smooth banking turn
+      bird.angle += Math.sign(diff) * Math.min(Math.abs(diff), turnRate * dt);
+      bird.bank += (Math.max(-1, Math.min(1, diff * 2)) - bird.bank) * 8 * dt;
+      bird.speed = 165 + Math.min(mag, 1) * 65;
+    } else {
+      bird.bank *= Math.pow(0.05, dt);
+      bird.speed += (165 - bird.speed) * 4 * dt;
+    }
+
+    bird.vx = Math.cos(bird.angle) * bird.speed;
+    bird.vy = Math.sin(bird.angle) * bird.speed;
+    bird.x += bird.vx * dt;
+    bird.y += bird.vy * dt;
+    bird.wingPhase += dt * (9 + bird.speed * 0.03);
+
+    // Update Falling Drops
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.elapsed += dt;
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      if (d.elapsed >= d.duration) {
+        resolveDropImpact(d);
+        drops.splice(i, 1);
+      }
+    }
+
+    // Update Cars & Despawn far ones
+    for (let i = cars.length - 1; i >= 0; i--) {
+      const c = cars[i];
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      if (Math.hypot(c.x - bird.x, c.y - bird.y) > 1600) {
+        cars.splice(i, 1);
+      }
+    }
+
+    // Update Pedestrians
+    for (let i = pedestrians.length - 1; i >= 0; i--) {
+      const p = pedestrians[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.walkPhase += dt * 10;
+      if (Math.hypot(p.x - bird.x, p.y - bird.y) > 1500) {
+        pedestrians.splice(i, 1);
+      }
+    }
+
+    // Update Splats attached to moving cars
+    for (const s of splats) {
+      if (s.followCar) {
+        s.x = s.followCar.x + s.offsetX;
+        s.y = s.followCar.y + s.offsetY;
+      }
+    }
+
+    // Update Floating Popups
+    for (let i = popups.length - 1; i >= 0; i--) {
+      popups[i].y -= 36 * dt;
+      popups[i].life -= dt;
+      if (popups[i].life <= 0) popups.splice(i, 1);
+    }
+
+    spawnEntities();
+  }
+
+  // --- RENDER PIPELINE (Procedural Vector Canvas) ---
+  function drawRoundedRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+
+    // Camera centered slightly ahead of bird for better forward visibility
+    const leadX = Math.cos(bird.angle) * 45;
+    const leadY = Math.sin(bird.angle) * 45;
+    const camX = bird.x + leadX - width / 2;
+    const camY = bird.y + leadY - height / 2;
+
+    ctx.save();
+    ctx.translate(-camX, -camY);
+
+    // 1. Determine visible city grid cells
+    const startGX = Math.floor(camX / CELL_SIZE) - 1;
+    const endGX = Math.floor((camX + width) / CELL_SIZE) + 1;
+    const startGY = Math.floor(camY / CELL_SIZE) - 1;
+    const endGY = Math.floor((camY + height) / CELL_SIZE) + 1;
+
+    // Asphalt Background
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(startGX * CELL_SIZE, startGY * CELL_SIZE, (endGX - startGX + 1) * CELL_SIZE, (endGY - startGY + 1) * CELL_SIZE);
+
+    // 2. Render Roads, Sidewalks, Roofs, and Parks
+    for (let gx = startGX; gx <= endGX; gx++) {
+      for (let gy = startGY; gy <= endGY; gy++) {
+        const bx = gx * CELL_SIZE;
+        const by = gy * CELL_SIZE;
+
+        // Road center dashed lines
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.45)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([18, 18]);
+        ctx.beginPath();
+        ctx.moveTo(bx + ROAD_WIDTH / 2, by);
+        ctx.lineTo(bx + CELL_SIZE, by);
+        ctx.moveTo(bx, by + ROAD_WIDTH / 2);
+        ctx.lineTo(bx, by + CELL_SIZE);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Crosswalks
+        ctx.fillStyle = 'rgba(248, 250, 252, 0.35)';
+        for (let s = -36; s <= 36; s += 16) {
+          ctx.fillRect(bx + ROAD_WIDTH / 2 + 8, by + s - 4, 14, 8);
+          ctx.fillRect(bx + s - 4, by + ROAD_WIDTH / 2 + 8, 8, 14);
+        }
+
+        // Sidewalk Base
+        const pad = ROAD_WIDTH / 2;
+        const innerSize = CELL_SIZE - ROAD_WIDTH;
+        ctx.fillStyle = '#94a3b8';
+        drawRoundedRect(bx + pad, by + pad, innerSize, innerSize, 18);
+        ctx.fill();
+
+        const blockSeed = hash2D(gx, gy);
+        const inset = pad + 18;
+        const bSize = innerSize - 36;
+
+        if (blockSeed < 0.72) {
+          // BUILDING ROOFTOPS (2x2 sub-buildings per block)
+          const sub = bSize / 2 - 8;
+          const roofColors = ['#cbd5e1', '#b45309', '#475569', '#9a3412', '#64748b'];
+          for (let sx = 0; sx < 2; sx++) {
+            for (let sy = 0; sy < 2; sy++) {
+              const rx = bx + inset + sx * (sub + 16);
+              const ry = by + inset + sy * (sub + 16);
+              const rSeed = hash2D(gx * 2 + sx, gy * 2 + sy);
+
+              // Building drop shadow
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.28)';
+              drawRoundedRect(rx + 10, ry + 12, sub, sub, 8);
+              ctx.fill();
+
+              // Main roof
+              ctx.fillStyle = roofColors[Math.floor(rSeed * roofColors.length)];
+              drawRoundedRect(rx, ry, sub, sub, 8);
+              ctx.fill();
+
+              // Roof parapet rim
+              ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+              ctx.lineWidth = 3;
+              ctx.stroke();
+
+              // Rooftop HVAC / Skylight detail
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
+              drawRoundedRect(rx + 18, ry + 18, sub * 0.35, sub * 0.28, 4);
+              ctx.fill();
+            }
+          }
+        } else {
+          // CITY PARK BLOCK
+          ctx.fillStyle = '#4ade80';
+          drawRoundedRect(bx + inset, by + inset, bSize, bSize, 14);
+          ctx.fill();
+
+          // Walking path
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 14;
+          ctx.beginPath();
+          ctx.moveTo(bx + inset + 20, by + inset + bSize / 2);
+          ctx.lineTo(bx + inset + bSize - 20, by + inset + bSize / 2);
+          ctx.stroke();
+
+          // Procedural Trees
+          for (let t = 0; t < 7; t++) {
+            const tx = bx + inset + 35 + hash2D(gx + t, gy) * (bSize - 70);
+            const ty = by + inset + 35 + hash2D(gx, gy + t) * (bSize - 70);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.2)';
+            ctx.beginPath();
+            ctx.arc(tx + 6, ty + 8, 22, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = t % 2 === 0 ? '#16a34a' : '#15803d';
+            ctx.beginPath();
+            ctx.arc(tx, ty, 22, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    // 3. Render Ground Splats
+    for (const s of splats) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+      ctx.arc(s.x + 5, s.y - 3, s.radius * 0.55, 0, Math.PI * 2);
+      ctx.arc(s.x - 4, s.y + 4, s.radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 4. Render Pedestrians
+    for (const p of pedestrians) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.arc(3, 4, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.hasUmbrella) {
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0284c7';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      } else {
+        // Shoulders
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 8, 5, Math.sin(p.walkPhase) * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // Head
+        ctx.fillStyle = '#fed7aa';
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 5. Render Cars
+    for (const c of cars) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.angle);
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      drawRoundedRect(-c.w / 2 + 4, -c.h / 2 + 5, c.w, c.h, 6);
+      ctx.fill();
+
+      // Car Body
+      ctx.fillStyle = c.color;
+      drawRoundedRect(-c.w / 2, -c.h / 2, c.w, c.h, 6);
+      ctx.fill();
+
+      // Windshield
+      ctx.fillStyle = '#1e293b';
+      drawRoundedRect(4, -c.h / 2 + 3, 9, c.h - 6, 2);
+      ctx.fill();
+
+      if (c.isConvertible) {
+        // Open interior seats
+        ctx.fillStyle = '#fef3c7';
+        drawRoundedRect(-12, -c.h / 2 + 4, 14, c.h - 8, 2);
+        ctx.fill();
+      } else {
+        // Roof panel
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+        drawRoundedRect(-13, -c.h / 2 + 3, 15, c.h - 6, 3);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // 6. Render Falling Drops (Scale shrinks as drop approaches ground)
+    for (const d of drops) {
+      const progress = Math.min(1, d.elapsed / d.duration);
+      // Ease-in gravity curve
+      const scale = d.startScale + (d.endScale - d.startScale) * (progress * progress);
+
+      // Ground target shadow (grows sharper as drop nears ground)
+      ctx.fillStyle = `rgba(15, 23, 42, ${0.12 + progress * 0.25})`;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 12 * (1 - progress * 0.4), 0, Math.PI * 2);
+      ctx.fill();
+
+      // Falling white drop (offset upward visually by altitude)
+      const altitudeOffset = (1 - progress * progress) * 28;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(d.x, d.y - altitudeOffset, 7 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    // 7. Render Player Bird (High altitude + ground shadow)
+    // Bird Ground Shadow
+    ctx.save();
+    ctx.translate(bird.x + 38, bird.y + 46);
+    ctx.rotate(bird.angle);
+    ctx.scale(0.65, 0.65);
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.24)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 18, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Bird Body & Flapping Wings
+    ctx.save();
+    ctx.translate(bird.x, bird.y);
+    ctx.rotate(bird.angle);
+    const bankScaleY = 1 - Math.abs(bird.bank) * 0.22;
+    ctx.scale(1, bankScaleY);
+
+    const wingSpan = 26 + Math.sin(bird.wingPhase) * 9;
+
+    // Wings
+    ctx.fillStyle = '#f1f5f9';
+    ctx.beginPath();
+    ctx.moveTo(4, 0);
+    ctx.quadraticCurveTo(-4, -wingSpan, -12, -wingSpan * 0.65);
+    ctx.lineTo(-8, 0);
+    ctx.quadraticCurveTo(-4, wingSpan, -12, wingSpan * 0.65);
+    ctx.closePath();
+    ctx.fill();
+
+    // Wingtips
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(-10, -wingSpan * 0.65, 3.5, 0, Math.PI * 2);
+    ctx.arc(-10, wingSpan * 0.65, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tail feathers
+    ctx.fillStyle = '#64748b';
+    ctx.beginPath();
+    ctx.moveTo(-12, 0);
+    ctx.lineTo(-22, -6);
+    ctx.lineTo(-22, 6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Torso
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Beak
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(14, -3);
+    ctx.lineTo(22, 0);
+    ctx.lineTo(14, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // 8. Floating Score Popups
+    ctx.font = '800 15px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    for (const pop of popups) {
+      ctx.globalAlpha = Math.min(1, pop.life * 1.4);
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(pop.text, pop.x + 1, pop.y + 1);
+      ctx.fillStyle = pop.color;
+      ctx.fillText(pop.text, pop.x, pop.y);
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+
+    // 9. Render Virtual Joystick UI when active
+    if (joystick.active) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(joystick.originX, joystick.originY, 52, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.65)';
+      ctx.beginPath();
+      ctx.arc(
+        joystick.originX + joystick.dx * 52,
+        joystick.originY + joystick.dy * 52,
+        22, 0, Math.PI * 2
+      );
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  // --- MAIN GAME LOOP ---
+  function loop(now) {
+    if (!running) return;
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+</body>
+</html>
