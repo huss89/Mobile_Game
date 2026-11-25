@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Sky Bomber v2 - Top-Down Arcade</title>
+  <title>FLYBY - City Pigeon Arcade</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,7 +11,6 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
-      touch-action: none;
     }
     html, body {
       width: 100%;
@@ -24,8 +23,8 @@
       display: block;
       width: 100%;
       height: 100%;
+      touch-action: none;
     }
-    /* HUD Overlay */
     #hud {
       position: fixed;
       top: 14px;
@@ -43,14 +42,10 @@
       flex-direction: column;
       gap: 6px;
     }
-    .hud-col.center {
-      align-items: center;
-    }
-    .hud-col.right {
-      align-items: flex-end;
-    }
+    .hud-col.center { align-items: center; }
+    .hud-col.right { align-items: flex-end; }
     .pill {
-      background: rgba(15, 23, 42, 0.78);
+      background: rgba(15, 23, 42, 0.8);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
       color: #f8fafc;
@@ -65,16 +60,16 @@
     #timer-pill {
       font-size: 17px;
       color: #38bdf8;
-      border-color: rgba(56, 189, 248, 0.4);
+      border-color: rgba(56, 189, 248, 0.45);
     }
     #timer-pill.urgent {
       color: #f87171;
-      border-color: rgba(248, 113, 113, 0.6);
-      animation: pulse 0.6s infinite alternate;
+      border-color: rgba(248, 113, 113, 0.65);
+      animation: pulse 0.55s infinite alternate;
     }
     @keyframes pulse {
       from { transform: scale(1); }
-      to { transform: scale(1.08); }
+      to { transform: scale(1.09); }
     }
     #combo-pill {
       color: #fde047;
@@ -92,10 +87,7 @@
       font-size: 12px;
       display: none;
     }
-    #powerup-pill.active {
-      display: block;
-    }
-    /* Action Buttons (Right Thumb) */
+    #powerup-pill.active { display: block; }
     #controls-right {
       position: fixed;
       bottom: 24px;
@@ -105,12 +97,13 @@
       align-items: center;
       gap: 14px;
       z-index: 20;
+      touch-action: manipulation;
     }
     #alt-btn {
       width: 68px;
       height: 68px;
       border-radius: 50%;
-      background: rgba(15, 23, 42, 0.85);
+      background: rgba(15, 23, 42, 0.88);
       border: 3px solid #a855f7;
       box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
       color: #f8fafc;
@@ -120,15 +113,13 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      transition: transform 0.08s ease, border-color 0.2s, background 0.2s;
+      cursor: pointer;
     }
     #alt-btn.low {
       border-color: #22c55e;
-      background: rgba(20, 83, 45, 0.88);
+      background: rgba(20, 83, 45, 0.9);
     }
-    #alt-btn:active {
-      transform: scale(0.9);
-    }
+    #alt-btn:active { transform: scale(0.9); }
     #alt-bonus {
       font-size: 10px;
       color: #fde047;
@@ -144,12 +135,11 @@
       color: #0f172a;
       font-weight: 900;
       font-size: 15px;
-      letter-spacing: 0.5px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      transition: transform 0.08s ease, background 0.1s;
+      cursor: pointer;
     }
     #drop-btn:active, #drop-btn.pressed {
       transform: scale(0.9);
@@ -161,13 +151,12 @@
       color: #0284c7;
       margin-top: 2px;
     }
-    /* Overlays (Start & Game Over) */
     .overlay {
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.86);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -176,45 +165,72 @@
       padding: 24px;
       color: #fff;
       z-index: 50;
+      touch-action: manipulation;
+    }
+    .title-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.18);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+      animation: floatTitle 2.2s ease-in-out infinite;
     }
     .overlay h1 {
-      font-size: 32px;
+      font-size: 46px;
       font-weight: 900;
-      letter-spacing: -0.5px;
-      margin-bottom: 10px;
-      color: #38bdf8;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      background: linear-gradient(180deg, #ffffff 20%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.45));
+      animation: floatTitle 2.2s ease-in-out infinite;
+    }
+    @keyframes floatTitle {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
     }
     .overlay p {
       font-size: 14px;
-      color: #cbd5e1;
+      color: #e2e8f0;
       max-width: 340px;
-      line-height: 1.5;
-      margin-bottom: 18px;
+      line-height: 1.45;
+      margin-bottom: 16px;
     }
     .tips-box {
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255,255,255,0.16);
       border-radius: 14px;
-      padding: 12px 16px;
-      margin-bottom: 22px;
+      padding: 12px 15px;
+      margin-bottom: 20px;
       max-width: 340px;
       text-align: left;
       font-size: 13px;
       color: #e2e8f0;
-      line-height: 1.55;
+      line-height: 1.5;
     }
-    .tips-box b {
-      color: #fde047;
-    }
+    .tips-box b { color: #fde047; }
     .primary-btn {
-      background: #38bdf8;
+      background: linear-gradient(135deg, #38bdf8, #22d3ee);
       color: #0f172a;
       border: none;
-      padding: 14px 34px;
-      font-size: 17px;
+      padding: 15px 38px;
+      font-size: 18px;
       font-weight: 900;
       border-radius: 999px;
-      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.45);
+      cursor: pointer;
+      touch-action: manipulation;
+      animation: btnGlow 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes btnGlow {
+      from { transform: scale(1); box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4); }
+      to { transform: scale(1.04); box-shadow: 0 10px 28px rgba(56, 189, 248, 0.7); }
     }
     .stat-row {
       display: flex;
@@ -222,11 +238,11 @@
       margin: 14px 0 24px;
     }
     .stat-card {
-      background: rgba(30, 41, 59, 0.9);
-      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255,255,255,0.16);
       border-radius: 14px;
       padding: 12px 20px;
-      min-width: 120px;
+      min-width: 125px;
     }
     .stat-card .label {
       font-size: 11px;
@@ -259,25 +275,26 @@
   </div>
 
   <div id="controls-right">
-    <button id="alt-btn" aria-label="Altitude">
+    <button id="alt-btn" type="button">
       <span id="alt-label">HIGH</span>
       <span id="alt-bonus">2X PTS</span>
     </button>
-    <button id="drop-btn" aria-label="Drop">
+    <button id="drop-btn" type="button">
       <span>DROP</span>
       <span class="cooldown-ring" id="ammo-status">READY</span>
     </button>
   </div>
 
   <div id="start-screen" class="overlay">
-    <h1>SKY BOMBER</h1>
-    <p>Score as high as you can in <b>45 seconds</b>!</p>
+    <div class="title-badge">City Pigeon Arcade</div>
+    <h1>FLYBY</h1>
+    <p>Rule the city skies for <b>45 seconds</b>!</p>
     <div class="tips-box">
       • <b>Aim Reticle:</b> Line up the pulsing ground target.<br>
-      • <b>HIGH vs LOW:</b> Fly <b>HIGH</b> for <b>2x points</b>; swoop <b>LOW</b> to duck under helicopters/hawks & land on perches.<br>
-      • <b>Perch Power-Ups:</b> Swoop <b>LOW</b> onto glowing <b>Berry Trees</b> or <b>Nest Poles</b> to grab Rapid-Fire, Triple-Spread, or Mega-Splat!
+      • <b>HIGH vs LOW:</b> Soar <b>HIGH</b> for <b>2x points</b>; swoop <b>LOW</b> to duck under choppers/hawks.<br>
+      • <b>Perch Power-Ups:</b> Swoop <b>LOW</b> onto glowing <b>Berry Trees</b> or <b>Nest Poles</b> for Rapid-Fire, Triple-Spread, or Mega-Splat!
     </div>
-    <button id="start-btn" class="primary-btn">START 45s RUN</button>
+    <button id="start-btn" class="primary-btn" type="button">START FLYBY</button>
   </div>
 
   <div id="gameover-screen" class="overlay" style="display: none;">
@@ -293,7 +310,7 @@
         <div class="val" id="final-best">0</div>
       </div>
     </div>
-    <button id="restart-btn" class="primary-btn">FLY AGAIN</button>
+    <button id="restart-btn" class="primary-btn" type="button">FLY AGAIN</button>
   </div>
 
   <canvas id="game"></canvas>
@@ -303,7 +320,6 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
 
-  // HUD & UI Elements
   const scoreEl = document.getElementById('score-val');
   const bestEl = document.getElementById('best-val');
   const timerPill = document.getElementById('timer-pill');
@@ -323,76 +339,75 @@
   const finalBestEl = document.getElementById('final-best');
   const newRecordMsg = document.getElementById('new-record-msg');
 
-  // --- AUDIO SYNTHESIZER ---
+  // --- AUDIO ---
   let audioCtx = null;
   function initAudio() {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (e) {}
   }
 
   function playSound(type) {
     if (!audioCtx) return;
-    const now = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    try {
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
 
-    if (type === 'drop') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(520, now);
-      osc.frequency.exponentialRampToValueAtTime(190, now + 0.65);
-      gain.gain.setValueAtTime(0.07, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
-      osc.start(now);
-      osc.stop(now + 0.7);
-    } else if (type === 'splat') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(140, now);
-      osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-      osc.start(now);
-      osc.stop(now + 0.16);
-    } else if (type === 'hit') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, now);
-      osc.frequency.setValueAtTime(880, now + 0.07);
-      gain.gain.setValueAtTime(0.14, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-      osc.start(now);
-      osc.stop(now + 0.3);
-    } else if (type === 'powerup') {
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(440, now);
-      osc.frequency.setValueAtTime(659.25, now + 0.08);
-      osc.frequency.setValueAtTime(880, now + 0.16);
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.start(now);
-      osc.stop(now + 0.36);
-    } else if (type === 'bonk') {
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(180, now);
-      osc.frequency.linearRampToValueAtTime(75, now + 0.3);
-      gain.gain.setValueAtTime(0.16, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
-      osc.start(now);
-      osc.stop(now + 0.34);
-    } else if (type === 'swoop') {
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(340, now);
-      osc.frequency.exponentialRampToValueAtTime(220, now + 0.16);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      osc.start(now);
-      osc.stop(now + 0.19);
-    }
+      if (type === 'drop') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(520, now);
+        osc.frequency.exponentialRampToValueAtTime(190, now + 0.6);
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.62);
+        osc.start(now); osc.stop(now + 0.65);
+      } else if (type === 'splat') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now); osc.stop(now + 0.16);
+      } else if (type === 'hit') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, now);
+        osc.frequency.setValueAtTime(880, now + 0.07);
+        gain.gain.setValueAtTime(0.14, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.start(now); osc.stop(now + 0.3);
+      } else if (type === 'powerup') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.08);
+        osc.frequency.setValueAtTime(880, now + 0.16);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now); osc.stop(now + 0.36);
+      } else if (type === 'bonk') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.linearRampToValueAtTime(75, now + 0.3);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+        osc.start(now); osc.stop(now + 0.34);
+      } else if (type === 'swoop') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(220, now + 0.16);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        osc.start(now); osc.stop(now + 0.19);
+      }
+    } catch (e) {}
   }
 
-  // --- VIEWPORT & WORLD SETUP ---
+  // --- VIEWPORT ---
   let width = 0, height = 0, dpr = 1;
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -407,22 +422,22 @@
 
   const BLOCK_SIZE = 440;
   const ROAD_WIDTH = 110;
-  const CELL_SIZE = BLOCK_SIZE + ROAD_WIDTH; // 550px
+  const CELL_SIZE = BLOCK_SIZE + ROAD_WIDTH;
 
-  // Persistent Best Score
-  let bestScore = parseInt(localStorage.getItem('sky_bomber_best') || '0', 10);
+  let bestScore = 0;
+  try { bestScore = parseInt(localStorage.getItem('flyby_best') || '0', 10) || 0; } catch (e) {}
   bestEl.textContent = bestScore;
 
-  // Game State
-  let running = false;
+  // 'DEMO' (animated background on start), 'PLAY', or 'OVER'
+  let mode = 'DEMO';
   let timeLeft = 45.0;
   let score = 0;
   let combo = 1;
   let comboTimer = 0;
-  let lastTime = 0;
+  let lastTime = performance.now();
   let cameraZoom = 1.0;
 
-  // Bird State
+  // Pigeon State
   const bird = {
     x: 275,
     y: 275,
@@ -432,41 +447,54 @@
     speed: 175,
     wingPhase: 0,
     bank: 0,
+    tailSpread: 0.25,
     cooldown: 0,
     maxCooldown: 0.52,
-    altitude: 'HIGH', // 'HIGH' or 'LOW'
+    altitude: 'HIGH',
     stunTimer: 0,
     perchTimer: 0,
     perchTarget: null,
-    powerup: null,    // 'RAPID' | 'TRIPLE' | 'MEGA'
+    powerup: null,
     powerupTimer: 0
   };
 
-  // World Entities
   const drops = [];
   const splats = [];
   const popups = [];
   const cars = [];
   const pedestrians = [];
-  const hazards = [];     // Helicopters, Drones, Hawks (at HIGH altitude)
-  const windZones = [];   // Crosswind gusts
-  const perches = [];     // Berry trees & Bird Nest poles (land at LOW altitude)
+  const groundPigeons = [];
+  const hazards = [];
+  const windZones = [];
+  const perches = [];
 
   function hash2D(ix, iy) {
     const n = Math.sin(ix * 127.1 + iy * 311.7) * 43758.5453123;
     return n - Math.floor(n);
   }
 
-  function resetGame() {
+  function updateAltitudeUI() {
+    if (bird.altitude === 'HIGH') {
+      altBtn.classList.remove('low');
+      altLabel.textContent = 'HIGH';
+      altBonus.textContent = '2X PTS';
+    } else {
+      altBtn.classList.add('low');
+      altLabel.textContent = 'LOW';
+      altBonus.textContent = 'PERCH / 1X';
+    }
+  }
+
+  function resetWorld() {
     timeLeft = 45.0;
     score = 0;
     combo = 1;
     comboTimer = 0;
-    cameraZoom = 1.0;
+    cameraZoom = 0.92;
 
     bird.x = 275;
     bird.y = 275;
-    bird.angle = -Math.PI / 2;
+    bird.angle = -Math.PI / 4;
     bird.speed = 175;
     bird.bank = 0;
     bird.cooldown = 0;
@@ -480,12 +508,14 @@
     updateAltitudeUI();
     powerupPill.classList.remove('active');
     timerPill.classList.remove('urgent');
+    timerPill.textContent = '45.0s';
 
     drops.length = 0;
     splats.length = 0;
     popups.length = 0;
     cars.length = 0;
     pedestrians.length = 0;
+    groundPigeons.length = 0;
     hazards.length = 0;
     windZones.length = 0;
     perches.length = 0;
@@ -493,12 +523,10 @@
     spawnEntities();
   }
 
-  // --- SPAWN ENTITIES AROUND BIRD ---
   function spawnEntities() {
     const bgx = Math.floor(bird.x / CELL_SIZE);
     const bgy = Math.floor(bird.y / CELL_SIZE);
 
-    // 1. Cars
     while (cars.length < 15) {
       const gx = bgx + Math.floor(Math.random() * 5) - 2;
       const gy = bgy + Math.floor(Math.random() * 5) - 2;
@@ -521,7 +549,6 @@
       });
     }
 
-    // 2. Pedestrians
     while (pedestrians.length < 22) {
       const gx = bgx + Math.floor(Math.random() * 5) - 2;
       const gy = bgy + Math.floor(Math.random() * 5) - 2;
@@ -541,7 +568,22 @@
       });
     }
 
-    // 3. Aerial Hazards (Helicopters, Drones, Territorial Hawks)
+    // Ambient sidewalk pigeons pecking at crumbs
+    while (groundPigeons.length < 14) {
+      const gx = bgx + Math.floor(Math.random() * 5) - 2;
+      const gy = bgy + Math.floor(Math.random() * 5) - 2;
+      const pad = ROAD_WIDTH / 2 + 10;
+      groundPigeons.push({
+        x: gx * CELL_SIZE + pad + Math.random() * (CELL_SIZE - pad * 2),
+        y: gy * CELL_SIZE + pad + Math.random() * (CELL_SIZE - pad * 2),
+        angle: Math.random() * Math.PI * 2,
+        peckPhase: Math.random() * 6,
+        scared: false,
+        vx: 0,
+        vy: 0
+      });
+    }
+
     while (hazards.length < 6) {
       const angleSpawn = Math.random() * Math.PI * 2;
       const dist = 420 + Math.random() * 480;
@@ -564,7 +606,6 @@
       });
     }
 
-    // 4. Wind Gust Zones
     while (windZones.length < 4) {
       const gx = bgx + Math.floor(Math.random() * 5) - 2;
       const gy = bgy + Math.floor(Math.random() * 5) - 2;
@@ -584,77 +625,16 @@
       }
     }
 
-    // 5. Grounded Perch Pickups (Berry Trees in parks & Bird Nest Poles on sidewalks)
     while (perches.length < 7) {
       const gx = bgx + Math.floor(Math.random() * 5) - 2;
       const gy = bgy + Math.floor(Math.random() * 5) - 2;
-      const blockSeed = hash2D(gx, gy);
-      const isPark = blockSeed >= 0.72;
+      const isPark = hash2D(gx, gy) >= 0.72;
       const pad = ROAD_WIDTH / 2;
 
       let px, py, kind;
       if (isPark) {
-        // Berry Tree inside park
         px = gx * CELL_SIZE + pad + 95 + Math.random() * (CELL_SIZE - ROAD_WIDTH - 190);
         py = gy * CELL_SIZE + pad + 95 + Math.random() * (CELL_SIZE - ROAD_WIDTH - 190);
         kind = 'BERRY_TREE';
       } else {
-        // Specific Bird Nest Pole on sidewalk corner
-        const cornerX = Math.random() > 0.5 ? pad + 12 : CELL_SIZE - pad - 12;
-        const cornerY = Math.random() > 0.5 ? pad + 12 : CELL_SIZE - pad - 12;
-        px = gx * CELL_SIZE + cornerX;
-        py = gy * CELL_SIZE + cornerY;
-        kind = 'NEST_POLE';
-      }
-
-      if (!perches.some(p => Math.hypot(p.x - px, p.y - py) < 260)) {
-        const rewards = ['RAPID', 'TRIPLE', 'MEGA'];
-        perches.push({
-          x: px,
-          y: py,
-          kind,
-          reward: rewards[Math.floor(Math.random() * rewards.length)],
-          active: true,
-          respawnTimer: 0,
-          pulse: Math.random() * Math.PI * 2
-        });
-      }
-    }
-  }
-
-  // --- CONTROLS ---
-  const joystick = {
-    active: false,
-    touchId: null,
-    originX: 0,
-    originY: 0,
-    dx: 0,
-    dy: 0
-  };
-
-  const keys = {};
-  window.addEventListener('keydown', e => {
-    keys[e.code] = true;
-    if (e.code === 'Space') triggerDrop();
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') toggleAltitude();
-  });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
-
-  canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    initAudio();
-    for (const t of e.changedTouches) {
-      if (!joystick.active && t.clientX < width * 0.72) {
-        joystick.active = true;
-        joystick.touchId = t.identifier;
-        joystick.originX = t.clientX;
-        joystick.originY = t.clientY;
-        joystick.dx = 0;
-        joystick.dy = 0;
-      }
-    }
-  }, { passive: false });
-
-  canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
- 
+        const cornerX = Math.random() > 0.5 ? pad + 12 : CELL_SIZE - pad
