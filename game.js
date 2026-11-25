@@ -56,11 +56,12 @@
   try { best = parseInt(localStorage.getItem('flyby_best') || '0', 10) || 0; } catch (e) {}
   $('best').textContent = best;
 
+  let viewMode = 'ISO'; // 'ISO' (2.5D) or 'TOP' (2D)
   let mode = 'DEMO', time = 0, timeLeft = 45.0, score = 0, combo = 1, comboT = 0, zoom = 0.92, shake = 0;
   let lastT = performance.now();
 
   const bird = {
-    x: 275, y: 275, vx: 0, vy: -120, ang: -0.8, spd: 175,
+    x: 275, y: 275, z: 120, vx: 0, vy: -120, ang: -0.8, spd: 175,
     wing: 0, bank: 0, tail: 0.25, cd: 0, alt: 'HIGH',
     stun: 0, perchT: 0, perchTarget: null, pwr: null, pwrT: 0
   };
@@ -68,12 +69,12 @@
   let drops = [], splats = [], pops = [], particles = [], cars = [], peds = [], gpigs = [], haz = [], winds = [], perches = [], clouds = [];
   const hash = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
 
-  function emitParticles(x, y, count, col, kind = 'dot', speed = 90) {
+  function emitParticles(x, y, count, col, kind = 'dot', speed = 90, z = 6) {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = (0.35 + Math.random() * 0.85) * speed;
       particles.push({
-        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        x, y, z, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         ang: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 8,
         sz: kind === 'feather' ? 3.2 : 2.5 + Math.random() * 2.5,
         col, kind, life: 0.45 + Math.random() * 0.4, maxLife: 0.85
@@ -88,10 +89,17 @@
     $('alt-bonus').textContent = lo ? 'PERCH / 1X' : '2X PTS';
   }
 
+  window.flybyToggleView = () => {
+    viewMode = viewMode === 'ISO' ? 'TOP' : 'ISO';
+    const btn = $('view-btn');
+    if (btn) btn.textContent = viewMode === 'ISO' ? 'VIEW: 2.5D' : 'VIEW: 2D';
+    sfx('swoop');
+  };
+
   function resetWorld() {
     timeLeft = 45.0; score = 0; combo = 1; comboT = 0; zoom = 0.92; shake = 0;
     Object.assign(bird, {
-      x: 275, y: 275, ang: -0.8, spd: 175, bank: 0, cd: 0,
+      x: 275, y: 275, z: 120, ang: -0.8, spd: 175, bank: 0, cd: 0,
       alt: 'HIGH', stun: 0, perchT: 0, perchTarget: null, pwr: null, pwrT: 0
     });
     updateAltUI();
@@ -199,6 +207,7 @@
     keys[e.code] = true;
     if (e.code === 'Space') window.flybyDrop();
     if (e.code === 'ShiftLeft' || e.code === 'KeyE') window.flybyToggleAlt();
+    if (e.code === 'KeyV') window.flybyToggleView();
   });
   window.addEventListener('keyup', e => { keys[e.code] = false; });
 
@@ -255,7 +264,7 @@
     const spd = Math.hypot(p.vx, p.vy), base = Math.atan2(p.vy, p.vx);
     for (const a of angs) {
       drops.push({
-        x: bird.x, y: bird.y, vx: Math.cos(base + a) * spd, vy: Math.sin(base + a) * spd,
+        x: bird.x, y: bird.y, startZ: bird.z, vx: Math.cos(base + a) * spd, vy: Math.sin(base + a) * spd,
         el: 0, dur: p.dur, mega: bird.pwr === 'MEGA', mult: p.mult
       });
     }
@@ -273,7 +282,7 @@
   // --- IMPACT ---
   function impact(d) {
     sfx('splat');
-    emitParticles(d.x, d.y, d.mega ? 16 : 7, d.mega ? '#fef08a' : '#ffffff', 'dot', d.mega ? 130 : 75);
+    emitParticles(d.x, d.y, d.mega ? 16 : 7, d.mega ? '#fef08a' : '#ffffff', 'dot', d.mega ? 130 : 75, 4);
     if (d.mega) shake = Math.max(shake, 0.45);
 
     const pad = d.mega ? 38 : 0, sr = d.mega ? 22 : 8;
@@ -356,6 +365,9 @@
     const tZoom = mode === 'DEMO' ? 0.92 : (bird.alt === 'HIGH' ? 0.84 : 1.12);
     zoom += (tZoom - zoom) * 6 * dt;
 
+    const targetZ = bird.alt === 'HIGH' ? 120 : 46;
+    bird.z += (targetZ - bird.z) * 7 * dt;
+
     if (bird.cd > 0) {
       bird.cd = Math.max(0, bird.cd - dt);
       $('ammo-status').textContent = bird.cd > 0 ? bird.cd.toFixed(1) + 's' : 'READY';
@@ -385,7 +397,9 @@
       if (bird.stun > 0) {
         bird.ang += 9 * dt; bird.spd = 60; bird.tail = 0.85;
       } else if (mag > 0.12) {
-        let diff = Math.atan2(iy, ix) - bird.ang;
+        // Rotate screen joystick angle by -45° in 2.5D isometric mode so Up=Up on screen
+        const targetAng = Math.atan2(iy, ix) - (viewMode === 'ISO' ? Math.PI / 4 : 0);
+        let diff = targetAng - bird.ang;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         bird.ang += Math.sign(diff) * Math.min(Math.abs(diff), 5.0 * dt);
@@ -436,7 +450,7 @@
             bird.perchT = 0; bird.perchTarget = null;
             bird.pwr = p.rew; bird.pwrT = 8.0;
             sfx('pwr');
-            emitParticles(p.x, p.y, 14, '#fde047', 'dot', 110);
+            emitParticles(p.x, p.y, 14, '#fde047', 'dot', 110, 32);
             const lbls = { RAPID: 'BERRY FEAST: RAPID FIRE!', TRIPLE: 'NEST SEEDS: TRIPLE DROP!', MEGA: 'GOLDEN ACORN: MEGA SPLAT!' };
             pops.push({ x: p.x, y: p.y - 24, txt: lbls[p.rew], col: '#fde047', life: 1.3 });
           }
@@ -464,7 +478,7 @@
         if (Math.hypot(bird.x - h.x, bird.y - h.y) < h.r + 12) {
           bird.stun = 1.1; combo = 1; comboT = 0; shake = Math.max(shake, 0.55);
           sfx('bonk');
-          emitParticles(bird.x, bird.y, 12, '#cbd5e1', 'feather', 115);
+          emitParticles(bird.x, bird.y, 12, '#cbd5e1', 'feather', 115, bird.z);
           pops.push({ x: bird.x, y: bird.y - 20, txt: `${h.tp} HIT! SWOOP LOW!`, col: '#f87171', life: 1.3 });
         }
       }
@@ -532,7 +546,7 @@
     if (mode !== 'OVER') update(dt);
     if (window.FlybyRender) {
       window.FlybyRender.render(ctx, {
-        W, H, zoom, mode, time, bird, cars, peds, gpigs, drops, splats, pops,
+        W, H, zoom, mode, viewMode, time, bird, cars, peds, gpigs, drops, splats, pops,
         particles, haz, winds, perches, clouds, joy, shake, CELL, ROAD, hash, flightParams
       });
     }
