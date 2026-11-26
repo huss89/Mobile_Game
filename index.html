@@ -1,106 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>FLYBY - City Pigeon Arcade</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1e293b; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-
-    #hud { position: fixed; top: 14px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; z-index: 10; }
-    .col { display: flex; flex-direction: column; gap: 6px; }
-    .col.center { align-items: center; }
-    .col.right { align-items: flex-end; }
-    .pill { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #f8fafc; padding: 7px 14px; border-radius: 999px; font-weight: 800; font-size: 13px; border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 4px 14px rgba(0,0,0,0.3); white-space: nowrap; }
-    #timer-pill { font-size: 17px; color: #38bdf8; border-color: rgba(56,189,248,0.45); }
-    #timer-pill.urgent { color: #f87171; border-color: rgba(248,113,113,0.7); animation: pulse 0.5s infinite alternate; }
-    @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
-    #combo-pill { color: #fde047; opacity: 0; transform: scale(0.9); transition: opacity 0.2s, transform 0.2s; }
-    #combo-pill.active { opacity: 1; transform: scale(1); }
-    #powerup-pill { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; font-size: 11px; display: none; }
-    #powerup-pill.active { display: block; }
-
-    #view-btn { pointer-events: auto; cursor: pointer; touch-action: manipulation; background: rgba(56, 189, 248, 0.22); border: 1.5px solid rgba(56, 189, 248, 0.75); color: #e0f2fe; font-size: 11px; padding: 6px 12px; transition: transform 0.1s, background 0.15s; }
-    #view-btn:active { transform: scale(0.92); background: rgba(56, 189, 248, 0.45); }
-
-    #controls { position: fixed; bottom: 24px; right: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; z-index: 20; }
-    #alt-btn { width: 68px; height: 68px; border-radius: 50%; background: rgba(15, 23, 42, 0.9); border: 3px solid #a855f7; box-shadow: 0 6px 18px rgba(0,0,0,0.4); color: #fff; font-weight: 800; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; transition: transform 0.1s; }
-    #alt-btn.low { border-color: #22c55e; background: rgba(20, 83, 45, 0.92); }
-    #alt-btn:active { transform: scale(0.9); }
-    #alt-bonus { font-size: 9px; color: #fde047; margin-top: 2px; }
-
-    #drop-btn { width: 86px; height: 86px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #ffffff, #e2e8f0); border: 4px solid #38bdf8; box-shadow: 0 8px 22px rgba(0,0,0,0.42), inset 0 -4px 8px rgba(0,0,0,0.15); color: #0f172a; font-weight: 900; font-size: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; touch-action: manipulation; transition: transform 0.08s; }
-    #drop-btn:active, #drop-btn.pressed { transform: scale(0.9); background: #bae6fd; }
-    #ammo-status { font-size: 10px; font-weight: 800; color: #0284c7; margin-top: 2px; }
-
-    .overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.72); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; color: #fff; z-index: 50; }
-    .badge { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: #34d399; background: rgba(16,185,129,0.2); border: 1px solid rgba(52,211,153,0.45); padding: 4px 12px; border-radius: 999px; margin-bottom: 8px; }
-    .overlay h1 { font-size: 48px; font-weight: 900; letter-spacing: 2px; margin-bottom: 6px; background: linear-gradient(180deg, #ffffff 25%, #38bdf8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5)); animation: float 2.4s ease-in-out infinite; }
-    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-    .tips { background: rgba(15, 23, 42, 0.88); border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; padding: 13px 16px; margin: 14px 0 20px; max-width: 340px; text-align: left; font-size: 13px; line-height: 1.5; color: #e2e8f0; }
-    .tips b { color: #fde047; }
-    .btn { background: linear-gradient(135deg, #38bdf8, #22d3ee); color: #0f172a; border: none; padding: 15px 40px; font-size: 18px; font-weight: 900; border-radius: 999px; box-shadow: 0 8px 24px rgba(56,189,248,0.45); cursor: pointer; touch-action: manipulation; }
-    .btn:active { transform: scale(0.94); }
-    .stats { display: flex; gap: 16px; margin: 14px 0 24px; }
-    .card { background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; padding: 12px 20px; min-width: 120px; }
-    .card span { display: block; font-size: 11px; color: #94a3b8; font-weight: 700; }
-    .card strong { font-size: 26px; color: #fde047; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Quiet Tracks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  body { overflow: hidden; background: #ede6d6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: none; color: #4a3f35; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .hud-top { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; pointer-events: none; z-index: 10; }
+  .pill-group { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
+  .btn { background: #fbf8f1; border: 2px solid #d5c7b2; border-radius: 14px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #5c4d3c; box-shadow: 0 3px 0 #cbbba4; cursor: pointer; transition: transform 0.08s; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #cbbba4; }
+  .btn.active { background: #6b8e78; border-color: #4f6f5b; color: #fffdf9; box-shadow: 0 3px 0 #45614f; }
+  .hud-bottom { position: fixed; bottom: 14px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; pointer-events: none; z-index: 10; }
+  .tray { display: flex; gap: 6px; background: rgba(251, 248, 241, 0.94); padding: 8px; border-radius: 18px; border: 2px solid #d5c7b2; box-shadow: 0 4px 12px rgba(74, 63, 53, 0.12); pointer-events: auto; overflow-x: auto; max-width: calc(100vw - 140px); }
+  .tool { min-width: 54px; height: 54px; border-radius: 13px; border: 2px solid #dfd3c0; background: #f4eee1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #5c4d3c; cursor: pointer; gap: 2px; }
+  .tool span.ico { font-size: 20px; line-height: 1; }
+  .tool.sel { background: #e3efe6; border-color: #6b8e78; color: #365241; transform: translateY(-2px); }
+  .train-btn { pointer-events: auto; height: 68px; min-width: 104px; border-radius: 20px; border: 2px solid #52735e; background: #6b8e78; color: #fffdf9; font-size: 15px; font-weight: 800; box-shadow: 0 4px 0 #45614f; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .train-btn.running { background: #c97b63; border-color: #9e5843; box-shadow: 0 4px 0 #8a4b38; }
+  .train-btn:active { transform: translateY(2px); }
+</style>
 </head>
 <body>
-  <div id="hud">
-    <div class="col">
-      <div class="pill">SCORE: <span id="score">0</span></div>
-      <div class="pill" id="combo-pill">COMBO x<span id="combo">1</span></div>
-    </div>
-    <div class="col center">
-      <div class="pill" id="timer-pill">45.0s</div>
-      <div class="pill" id="powerup-pill">BOOST</div>
-    </div>
-    <div class="col right">
-      <div class="pill">BEST: <span id="best">0</span></div>
-      <button id="view-btn" class="pill" type="button" onclick="window.flybyToggleView && window.flybyToggleView()">VIEW: 2.5D</button>
-    </div>
+<canvas id="c"></canvas>
+<div class="hud-top">
+  <div class="pill-group">
+    <button class="btn active" id="btn-view">2D TABLE</button>
+    <button class="btn" id="btn-grid">GRID: 8×8</button>
+    <button class="btn" id="btn-clear">CLEAR</button>
   </div>
-
-  <div id="controls">
-    <button id="alt-btn" type="button" onclick="window.flybyToggleAlt && window.flybyToggleAlt()">
-      <span id="alt-lbl">HIGH</span>
-      <span id="alt-bonus">2X PTS</span>
-    </button>
-    <button id="drop-btn" type="button" onclick="window.flybyDrop && window.flybyDrop()">
-      <span>DROP</span>
-      <span id="ammo-status">READY</span>
-    </button>
+  <div class="pill-group">
+    <button class="btn" id="btn-zout">−</button>
+    <button class="btn" id="btn-zin">+</button>
   </div>
-
-  <div id="start-screen" class="overlay">
-    <div class="badge">CITY PIGEON ARCADE • v5.0</div>
-    <h1>FLYBY</h1>
-    <p style="font-size:14px;color:#cbd5e1">Rule the city skies for <b>45 seconds</b>!</p>
-    <div class="tips">
-      • <b>Aim Reticle:</b> Line up the pulsing ground target.<br>
-      • <b>HIGH vs LOW:</b> Fly <b>HIGH</b> for <b>2x points</b>; swoop <b>LOW</b> to duck under choppers, drones &amp; hawks.<br>
-      • <b>Perch Power-Ups:</b> Swoop <b>LOW</b> onto glowing <b>Berry Trees</b> or <b>Nest Poles</b> for Rapid-Fire, Triple-Spread, or Mega-Splat!<br>
-      • <b>Camera Toggle:</b> Tap <b>VIEW: 2.5D / 2D</b> anytime to switch perspective.
-    </div>
-    <button class="btn" type="button" onclick="window.flybyStart && window.flybyStart()">START FLYBY</button>
+</div>
+<div class="hud-bottom">
+  <div class="tray" id="tray">
+    <div class="tool sel" data-tool="auto"><span class="ico">🛤️</span>DRAW</div>
+    <div class="tool" data-tool="straight"><span class="ico">➖</span>LINE</div>
+    <div class="tool" data-tool="curve"><span class="ico">↩️</span>TURN</div>
+    <div class="tool" data-tool="overpass"><span class="ico">🌉</span>BRIDGE</div>
+    <div class="tool" data-tool="water"><span class="ico">💧</span>RIVER</div>
+    <div class="tool" data-tool="tree"><span class="ico">🌲</span>TREE</div>
+    <div class="tool" data-tool="erase"><span class="ico">🧽</span>CLEAR</div>
   </div>
-
-  <div id="over-screen" class="overlay" style="display:none">
-    <h1>TIME'S UP!</h1>
-    <p id="rec-msg" style="color:#fde047;font-weight:800;display:none">NEW HIGH SCORE!</p>
-    <div class="stats">
-      <div class="card"><span>SCORE</span><strong id="f-score">0</strong></div>
-      <div class="card"><span>BEST</span><strong id="f-best">0</strong></div>
-    </div>
-    <button class="btn" type="button" onclick="window.flybyStart && window.flybyStart()">FLY AGAIN</button>
-  </div>
-
-  <canvas id="game"></canvas>
-  <script src="render.js?v=5.0"></script>
-  <script src="game.js?v=5.0"></script>
+  <button class="train-btn" id="btn-train"><span style="font-size:22px">🚂</span><span id="train-lbl">START</span></button>
+</div>
+<script src="tracks-render.js"></script>
+<script src="tracks-game.js"></script>
 </body>
 </html>
