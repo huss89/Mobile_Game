@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Quiet Tracks</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+  body { overflow: hidden; background: #ede6d6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: none; color: #4a3f35; }
+  canvas { display: block; width: 100vw; height: 100vh; }
+  .hud-top { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px; pointer-events: none; z-index: 10; }
+  .pill-group { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
+  .btn { background: #fbf8f1; border: 2px solid #d5c7b2; border-radius: 14px; padding: 8px 12px; font-size: 13px; font-weight: 700; color: #5c4d3c; box-shadow: 0 3px 0 #cbbba4; cursor: pointer; transition: transform 0.08s; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #cbbba4; }
+  .btn.active { background: #6b8e78; border-color: #4f6f5b; color: #fffdf9; box-shadow: 0 3px 0 #45614f; }
+  .hud-bottom { position: fixed; bottom: 14px; left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; pointer-events: none; z-index: 10; }
+  .tray { display: flex; gap: 6px; background: rgba(251, 248, 241, 0.94); padding: 8px; border-radius: 18px; border: 2px solid #d5c7b2; box-shadow: 0 4px 12px rgba(74, 63, 53, 0.12); pointer-events: auto; overflow-x: auto; max-width: calc(100vw - 140px); }
+  .tool { min-width: 54px; height: 54px; border-radius: 13px; border: 2px solid #dfd3c0; background: #f4eee1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #5c4d3c; cursor: pointer; gap: 2px; }
+  .tool span.ico { font-size: 20px; line-height: 1; }
+  .tool.sel { background: #e3efe6; border-color: #6b8e78; color: #365241; transform: translateY(-2px); }
+  .train-btn { pointer-events: auto; height: 68px; min-width: 104px; border-radius: 20px; border: 2px solid #52735e; background: #6b8e78; color: #fffdf9; font-size: 15px; font-weight: 800; box-shadow: 0 4px 0 #45614f; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .train-btn.running { background: #c97b63; border-color: #9e5843; box-shadow: 0 4px 0 #8a4b38; }
+  .train-btn:active { transform: translateY(2px); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud-top">
+  <div class="pill-group">
+    <button class="btn active" id="btn-view">2D TABLE</button>
+    <button class="btn" id="btn-grid">GRID: 8×8</button>
+    <button class="btn" id="btn-clear">CLEAR</button>
+  </div>
+  <div class="pill-group">
+    <button class="btn" id="btn-zout">−</button>
+    <button class="btn" id="btn-zin">+</button>
+  </div>
+</div>
+<div class="hud-bottom">
+  <div class="tray" id="tray">
+    <div class="tool sel" data-tool="auto"><span class="ico">🛤️</span>DRAW</div>
+    <div class="tool" data-tool="straight"><span class="ico">➖</span>LINE</div>
+    <div class="tool" data-tool="curve"><span class="ico">↩️</span>TURN</div>
+    <div class="tool" data-tool="overpass"><span class="ico">🌉</span>BRIDGE</div>
+    <div class="tool" data-tool="water"><span class="ico">💧</span>RIVER</div>
+    <div class="tool" data-tool="tree"><span class="ico">🌲</span>TREE</div>
+    <div class="tool" data-tool="erase"><span class="ico">🧽</span>CLEAR</div>
+  </div>
+  <button class="train-btn" id="btn-train"><span style="font-size:22px">🚂</span><span id="train-lbl">START</span></button>
+</div>
+<script src="tracks-render.js"></script>
+<script src="tracks-game.js"></script>
+</body>
+</html>
